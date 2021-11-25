@@ -19,11 +19,13 @@
 #include "esp_attr.h"
 #include "esp_sleep.h"
 #include "esp_vfs_fat.h"
+#include "esp_wifi.h"
 #include "nvs_flash.h"
 #include "sdmmc_cmd.h"
 #include "wifi_connect.h"
 #include "esp_sntp.h"
 #include "pcap_lib.h"
+#include "sniffer.h"
 
 /* Defines -------------------------------------------------------------------*/
 #define ESP_INTR_FLAG_DEFAULT 0
@@ -41,6 +43,7 @@ static void obtain_time(void);
 static void initialize_gpio(void);
 static void initialize_nvs(void);
 static void initialize_sntp(void);
+static void initialize_wifi(void);
 static bool mount_sd(void);
 static bool unmount_sd(void);
 static uint32_t get_file_index(uint32_t max_files);
@@ -86,6 +89,10 @@ void app_main(void)
 
     // Open first pcap file
     ESP_ERROR_CHECK(pcap_open(file_idx));
+    initialize_wifi();
+    initialize_sniffer();
+    ESP_ERROR_CHECK(sniffer_start());
+    
     //start periodical save task
     xTaskCreate(save_task, "save_task", 1024, NULL, 10, NULL);
 
@@ -100,6 +107,8 @@ void app_main(void)
 
             if (sd_mounted == true)
             {
+                // Close current pcap and unmount SD
+                ESP_ERROR_CHECK(sniffer_stop());
                 ESP_ERROR_CHECK(pcap_close());
                 sd_mounted = unmount_sd();
             }
@@ -110,8 +119,10 @@ void app_main(void)
         }
         else if (change_file == true)
         {
+            ESP_ERROR_CHECK(sniffer_stop());
             ESP_ERROR_CHECK(pcap_close());
             ESP_ERROR_CHECK(pcap_open(++file_idx));
+            ESP_ERROR_CHECK(sniffer_start());
 
             change_file = false;
         }
@@ -199,6 +210,15 @@ static void initialize_sntp(void)
     sntp_setoperatingmode(SNTP_OPMODE_POLL);
     sntp_setservername(0, "pool.ntp.org");
     sntp_init();
+}
+
+static void initialize_wifi(void)
+{
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+
+    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_NULL));
 }
 
 static void obtain_time(void)
