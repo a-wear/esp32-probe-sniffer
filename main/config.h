@@ -13,6 +13,9 @@
 #define CONFIG_SD_MOUNT_POINT "/sdcard"
 #define CONFIG_SD_1_LINE true
 
+#define CONFIG_PCAP_FILENAME_MASK "file_%06d.pcap"
+
+
 #define CONFIG_SAVE_FREQUENCY_MINUTES 30
 
 #endif

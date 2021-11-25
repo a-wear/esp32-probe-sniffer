@@ -42,6 +42,7 @@ static void initialize_nvs(void);
 static void initialize_sntp(void);
 static bool mount_sd(void);
 static bool unmount_sd(void);
+static uint32_t get_file_index(uint32_t max_files);
 
 /* Interrupt service prototypes ----------------------------------------------*/
 static void IRAM_ATTR gpio_isr_handler(void* arg);
@@ -56,6 +57,7 @@ void app_main(void)
     time_t current_time;
     struct tm timeinfo;
     char strftime_buf[64];
+    uint32_t file_idx = 0;
 
     // Initialize peripherals and time
     initialize_gpio();
@@ -79,6 +81,8 @@ void app_main(void)
     {
         return;
     }
+    file_idx = get_file_index(65535);
+
     //start periodical save task
     xTaskCreate(save_task, "save_task", 1024, NULL, 10, NULL);
 
@@ -275,4 +279,21 @@ static bool unmount_sd(void)
     }
     ESP_LOGI(TAG, "Card unmounted");
     return false;
+}
+
+static uint32_t get_file_index(uint32_t max_files)
+{
+    uint32_t idx;
+    char filename[CONFIG_FATFS_MAX_LFN];
+
+    for(idx = 0; idx < max_files; idx++)
+    {
+        sprintf(filename, CONFIG_SD_MOUNT_POINT"/"CONFIG_PCAP_FILENAME_MASK, idx);
+        if (access(filename, F_OK) != 0)
+        {
+            break;
+        }
+    }
+
+    return idx;
 }
