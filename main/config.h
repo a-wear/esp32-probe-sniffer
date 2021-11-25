@@ -1,0 +1,11 @@
+#ifndef CONFIG
+#define CONFIG
+
+#define CONFIG_GPIO_BUTTON_PIN 0
+#define CONFIG_GPIO_LED_PIN 33
+
+#define CONFIG_GPIO_LED_ON 0
+#define CONFIG_GPIO_LED_OFF 1
+
+
+#endif
