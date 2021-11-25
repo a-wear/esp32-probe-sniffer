@@ -23,6 +23,7 @@
 #include "sdmmc_cmd.h"
 #include "wifi_connect.h"
 #include "esp_sntp.h"
+#include "pcap_lib.h"
 
 /* Defines -------------------------------------------------------------------*/
 #define ESP_INTR_FLAG_DEFAULT 0
@@ -83,6 +84,8 @@ void app_main(void)
     }
     file_idx = get_file_index(65535);
 
+    // Open first pcap file
+    ESP_ERROR_CHECK(pcap_open(file_idx));
     //start periodical save task
     xTaskCreate(save_task, "save_task", 1024, NULL, 10, NULL);
 
@@ -97,6 +100,7 @@ void app_main(void)
 
             if (sd_mounted == true)
             {
+                ESP_ERROR_CHECK(pcap_close());
                 sd_mounted = unmount_sd();
             }
 
@@ -106,6 +110,8 @@ void app_main(void)
         }
         else if (change_file == true)
         {
+            ESP_ERROR_CHECK(pcap_close());
+            ESP_ERROR_CHECK(pcap_open(++file_idx));
 
             change_file = false;
         }
