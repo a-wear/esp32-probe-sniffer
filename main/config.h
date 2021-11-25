@@ -7,5 +7,8 @@
 #define CONFIG_GPIO_LED_ON 0
 #define CONFIG_GPIO_LED_OFF 1
 
+#define CONFIG_WIFI_SSID "SSID"
+#define CONFIG_WIFI_PASSWORD "PASSWORD"
+
 
 #endif
