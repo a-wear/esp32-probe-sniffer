@@ -28,6 +28,7 @@
 static const char *TAG = "main";
 
 static volatile bool stop_probing = false;
+static volatile bool change_file = false;
 static xQueueHandle gpio_evt_queue = NULL;
 
 /* Function prototypes -------------------------------------------------------*/
@@ -41,6 +42,8 @@ static void IRAM_ATTR gpio_isr_handler(void* arg);
 
 /* Task prototypes -----------------------------------------------------------*/
 static void gpio_task(void* arg);
+static void save_task(void* arg);
+
 /* Main function -------------------------------------------------------------*/
 void app_main(void)
 {
@@ -63,6 +66,9 @@ void app_main(void)
     strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
     ESP_LOGI(TAG, "The current date/time in Europe is: %s", strftime_buf);
 
+    //start periodical save task
+    xTaskCreate(save_task, "save_task", 1024, NULL, 10, NULL);
+
     // Turn off LED when set up ends
     ESP_ERROR_CHECK(gpio_set_level(CONFIG_GPIO_LED_PIN, CONFIG_GPIO_LED_OFF));
 
@@ -76,6 +82,12 @@ void app_main(void)
             ESP_ERROR_CHECK(gpio_set_level(CONFIG_GPIO_LED_PIN, CONFIG_GPIO_LED_ON));
             return;
         }
+        else if (change_file == true)
+        {
+
+            change_file = false;
+        }
+
         vTaskDelay(10);
     }
 }
@@ -101,6 +113,18 @@ static void gpio_task(void* arg)
     }
 }
 
+static void save_task(void* arg)
+{
+    const TickType_t xDelay = (1000 * 60 * CONFIG_SAVE_FREQUENCY_MINUTES) / portTICK_PERIOD_MS;
+
+    while(stop_probing == false)
+    {
+        vTaskDelay(xDelay);
+        change_file = true;
+    }
+
+    vTaskDelete(NULL);
+}
 
 /* Function definitions ------------------------------------------------------*/
 static void initialize_gpio(void)
