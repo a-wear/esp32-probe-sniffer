@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include "config.h"
 #include "driver/gpio.h"
+#include "driver/sdmmc_host.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
@@ -17,7 +18,9 @@
 #include "esp_log.h"
 #include "esp_attr.h"
 #include "esp_sleep.h"
+#include "esp_vfs_fat.h"
 #include "nvs_flash.h"
+#include "sdmmc_cmd.h"
 #include "wifi_connect.h"
 #include "esp_sntp.h"
 
@@ -29,6 +32,7 @@ static const char *TAG = "main";
 
 static volatile bool stop_probing = false;
 static volatile bool change_file = false;
+static bool sd_mounted = false;
 static xQueueHandle gpio_evt_queue = NULL;
 
 /* Function prototypes -------------------------------------------------------*/
@@ -36,6 +40,8 @@ static void obtain_time(void);
 static void initialize_gpio(void);
 static void initialize_nvs(void);
 static void initialize_sntp(void);
+static bool mount_sd(void);
+static bool unmount_sd(void);
 
 /* Interrupt service prototypes ----------------------------------------------*/
 static void IRAM_ATTR gpio_isr_handler(void* arg);
@@ -66,6 +72,13 @@ void app_main(void)
     strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
     ESP_LOGI(TAG, "The current date/time in Europe is: %s", strftime_buf);
 
+    // SD card setup and file ID check
+    sd_mounted = mount_sd();
+    
+    if (sd_mounted == false)
+    {
+        return;
+    }
     //start periodical save task
     xTaskCreate(save_task, "save_task", 1024, NULL, 10, NULL);
 
@@ -77,6 +90,11 @@ void app_main(void)
         if(stop_probing == true)
         {
             stop_probing = false;
+
+            if (sd_mounted == true)
+            {
+                sd_mounted = unmount_sd();
+            }
 
             // Turn LED ON when SD unmounted
             ESP_ERROR_CHECK(gpio_set_level(CONFIG_GPIO_LED_PIN, CONFIG_GPIO_LED_ON));
@@ -189,4 +207,72 @@ static void obtain_time(void)
     }
 
     ESP_ERROR_CHECK(wifi_disconnect() );
+}
+
+static bool mount_sd(void)
+{
+    esp_err_t ret;
+    ESP_LOGI(TAG, "Initializing SD card");
+    esp_vfs_fat_sdmmc_mount_config_t mount_config = {
+        .format_if_mount_failed = false,
+        .max_files = 4,
+        .allocation_unit_size = 16 * 1024
+    };
+
+    // initialize SD card and mount FAT filesystem.
+    sdmmc_card_t *card;
+
+    ESP_LOGI(TAG, "Using SDMMC peripheral");
+    sdmmc_host_t host = SDMMC_HOST_DEFAULT();
+    sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
+
+    // To use 1-line SD mode, change this to 1:
+    slot_config.width = 1;
+
+    if (slot_config.width == 1)
+    {
+        host.flags = SDMMC_HOST_FLAG_1BIT;
+        slot_config.width = 1;
+    }
+    else
+    {
+        ESP_ERROR_CHECK(gpio_set_pull_mode(GPIO_NUM_4, GPIO_PULLUP_ONLY));  // D1, needed in 4-line mode only
+        ESP_ERROR_CHECK(gpio_set_pull_mode(GPIO_NUM_12, GPIO_PULLUP_ONLY)); // D2, needed in 4-line mode only
+    }
+
+    ESP_ERROR_CHECK(gpio_set_pull_mode(GPIO_NUM_15, GPIO_PULLUP_ONLY)); // CMD, needed in 4- and 1-line modes
+    ESP_ERROR_CHECK(gpio_set_pull_mode(GPIO_NUM_2, GPIO_PULLUP_ONLY));  // D0, needed in 4- and 1-line modes
+    ESP_ERROR_CHECK(gpio_set_pull_mode(GPIO_NUM_13, GPIO_PULLUP_ONLY)); // D3, needed in 4- and 1-line modes
+
+    const char mount_point[] = CONFIG_SD_MOUNT_POINT;
+
+    ret = esp_vfs_fat_sdmmc_mount(mount_point, &host, &slot_config, &mount_config, &card);
+
+    if (ret != ESP_OK)
+    {
+        if (ret == ESP_FAIL)
+        {
+            ESP_LOGE(TAG, "Failed to mount filesystem. "
+                        "If you want the card to be formatted, set format_if_mount_failed = true.");
+        }
+        else
+        {
+            ESP_LOGE(TAG, "Failed to initialize the card (%s). "
+                        "Make sure SD card lines have pull-up resistors in place.",
+                        esp_err_to_name(ret));
+        }
+        return false;
+    }
+
+    return true;
+}
+
+static bool unmount_sd(void)
+{
+    if (esp_vfs_fat_sdmmc_unmount() != ESP_OK) {
+        ESP_LOGE(TAG, "Card unmount failed");
+        return sd_mounted;
+    }
+    ESP_LOGI(TAG, "Card unmounted");
+    return false;
 }

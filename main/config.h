@@ -10,6 +10,9 @@
 #define CONFIG_WIFI_SSID "SSID"
 #define CONFIG_WIFI_PASSWORD "PASSWORD"
 
+#define CONFIG_SD_MOUNT_POINT "/sdcard"
+#define CONFIG_SD_1_LINE true
+
 #define CONFIG_SAVE_FREQUENCY_MINUTES 30
 
 #endif
