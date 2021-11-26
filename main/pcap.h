@@ -27,21 +27,22 @@ typedef struct pcap_file_t *pcap_file_handle_t;
 *
 */
 typedef enum {
-    PCAP_LINK_TYPE_LOOPBACK = 0,       /*!< Loopback devices, except for later OpenBSD */
-    PCAP_LINK_TYPE_ETHERNET = 1,       /*!< Ethernet, and Linux loopback devices */
-    PCAP_LINK_TYPE_TOKEN_RING = 6,     /*!< 802.5 Token Ring */
-    PCAP_LINK_TYPE_ARCNET = 7,         /*!< ARCnet */
-    PCAP_LINK_TYPE_SLIP = 8,           /*!< SLIP */
-    PCAP_LINK_TYPE_PPP = 9,            /*!< PPP */
-    PCAP_LINK_TYPE_FDDI = 10,          /*!< FDDI */
-    PCAP_LINK_TYPE_ATM = 100,          /*!< LLC/SNAP encapsulated ATM */
-    PCAP_LINK_TYPE_RAW_IP = 101,       /*!< Raw IP, without link */
-    PCAP_LINK_TYPE_BSD_SLIP = 102,     /*!< BSD/OS SLIP */
-    PCAP_LINK_TYPE_BSD_PPP = 103,      /*!< BSD/OS PPP */
-    PCAP_LINK_TYPE_CISCO_HDLC = 104,   /*!< Cisco HDLC */
-    PCAP_LINK_TYPE_802_11 = 105,       /*!< 802.11 */
-    PCAP_LINK_TYPE_BSD_LOOPBACK = 108, /*!< OpenBSD loopback devices(with AF_value in network byte order) */
-    PCAP_LINK_TYPE_LOCAL_TALK = 114    /*!< LocalTalk */
+    PCAP_LINK_TYPE_LOOPBACK = 0,            /*!< Loopback devices, except for later OpenBSD */
+    PCAP_LINK_TYPE_ETHERNET = 1,            /*!< Ethernet, and Linux loopback devices */
+    PCAP_LINK_TYPE_TOKEN_RING = 6,          /*!< 802.5 Token Ring */
+    PCAP_LINK_TYPE_ARCNET = 7,              /*!< ARCnet */
+    PCAP_LINK_TYPE_SLIP = 8,                /*!< SLIP */
+    PCAP_LINK_TYPE_PPP = 9,                 /*!< PPP */
+    PCAP_LINK_TYPE_FDDI = 10,               /*!< FDDI */
+    PCAP_LINK_TYPE_ATM = 100,               /*!< LLC/SNAP encapsulated ATM */
+    PCAP_LINK_TYPE_RAW_IP = 101,            /*!< Raw IP, without link */
+    PCAP_LINK_TYPE_BSD_SLIP = 102,          /*!< BSD/OS SLIP */
+    PCAP_LINK_TYPE_BSD_PPP = 103,           /*!< BSD/OS PPP */
+    PCAP_LINK_TYPE_CISCO_HDLC = 104,        /*!< Cisco HDLC */
+    PCAP_LINK_TYPE_802_11 = 105,            /*!< 802.11 */
+    PCAP_LINK_TYPE_BSD_LOOPBACK = 108,      /*!< OpenBSD loopback devices(with AF_value in network byte order) */
+    PCAP_LINK_TYPE_LOCAL_TALK = 114,        /*!< LocalTalk */
+    PCAP_LINK_TYPE_802_11_RADIOTAP = 127    /*!< 802.11 with RadioTap*/
 } pcap_link_type_t;
 
 /**
