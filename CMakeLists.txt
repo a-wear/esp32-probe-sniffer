@@ -2,8 +2,5 @@
 # in this exact order for cmake to work correctly
 cmake_minimum_required(VERSION 3.5)
 
-# Use library for packet write into pcap file
-set(EXTRA_COMPONENT_DIRS "$ENV{IDF_PATH}/examples/common_components/pcap")
-
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(probe_sniffer)
