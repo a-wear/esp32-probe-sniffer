@@ -33,6 +33,18 @@ typedef struct {
 } pcap_file_header_t;
 
 /**
+ * @brief Pcap RadioTap Header
+ * 
+ */
+typedef struct
+{
+    uint8_t it_version;     /*!< set to 0 */
+    uint8_t it_pad;
+    uint16_t it_len;        /*!< entire length */
+    uint32_t it_present;    /*!< fields present */ 
+} pcap_radiotap_header_t;
+
+/**
  * @brief Pcap Packet Header
  *
  */
