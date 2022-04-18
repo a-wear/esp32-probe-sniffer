@@ -9,12 +9,15 @@
 #include <string.h>
 #include "esp_log.h"
 #include "esp_check.h"
+#include "esp_wifi_types.h"
 #include "pcap.h"
 
 static const char *TAG = "pcap";
 
 #define PCAP_MAGIC_BIG_ENDIAN 0xA1B2C3D4    /*!< Big-Endian */
 #define PCAP_MAGIC_LITTLE_ENDIAN 0xD4C3B2A1 /*!< Little-Endian */
+
+#define SNIFFER_PAYLOAD_FCS_LEN             (4)
 
 #define RTAP_IT_PRESENT 0b00000000000000000000100000100000
 
@@ -138,17 +141,37 @@ esp_err_t pcap_write_header(pcap_file_handle_t pcap, pcap_link_type_t link_type)
 esp_err_t pcap_capture_packet(pcap_file_handle_t pcap, void *payload, uint32_t length, uint32_t seconds, uint32_t microseconds)
 {
     ESP_RETURN_ON_FALSE(pcap && payload, ESP_ERR_INVALID_ARG, TAG, "invalid argumnet");
+
+    wifi_promiscuous_pkt_t *pkt = (wifi_promiscuous_pkt_t *)payload;
+
     size_t real_write = 0;
     pcap_packet_header_t header = {
         .seconds = seconds,
         .microseconds = microseconds,
-        .capture_length = length,
-        .packet_length = length
+        .capture_length = pkt->rx_ctrl.sig_len - SNIFFER_PAYLOAD_FCS_LEN + sizeof(pcap_radiotap_header_t) + sizeof(pcap_radiotap_data_t),
+        .packet_length = pkt->rx_ctrl.sig_len - SNIFFER_PAYLOAD_FCS_LEN + sizeof(pcap_radiotap_header_t) + sizeof(pcap_radiotap_data_t)
     };
+    pcap_radiotap_header_t rtap_header = {
+        .it_version = 0,
+        .it_pad = 0,
+        .it_len = sizeof(pcap_radiotap_header_t) + sizeof(pcap_radiotap_data_t),
+        .it_present = RTAP_IT_PRESENT
+    };
+    pcap_radiotap_data_t rtap_data = {
+        .antenna = pkt->rx_ctrl.ant,
+        .antsignal = pkt->rx_ctrl.rssi
+    };
+
     real_write = fwrite(&header, sizeof(header), 1, pcap->file);
     ESP_RETURN_ON_FALSE(real_write == 1, ESP_FAIL, TAG, "write packet header failed");
-    real_write = fwrite(payload, sizeof(uint8_t), length, pcap->file);
-    ESP_RETURN_ON_FALSE(real_write == length, ESP_FAIL, TAG, "write packet payload failed");
+
+    real_write = fwrite(&rtap_header, sizeof(rtap_header), 1, pcap->file);
+    ESP_RETURN_ON_FALSE(real_write == 1, ESP_FAIL, TAG, "write packet rtap_header failed");
+    real_write = fwrite(&rtap_data, sizeof(rtap_data), 1, pcap->file);
+    ESP_RETURN_ON_FALSE(real_write == 1, ESP_FAIL, TAG, "write packet rtap_data failed");
+    
+    real_write = fwrite(pkt->payload, sizeof(uint8_t), pkt->rx_ctrl.sig_len - SNIFFER_PAYLOAD_FCS_LEN, pcap->file);
+    ESP_RETURN_ON_FALSE(real_write == pkt->rx_ctrl.sig_len - SNIFFER_PAYLOAD_FCS_LEN, ESP_FAIL, TAG, "write packet payload failed");
     /* Flush content in the buffer into device */
     fflush(pcap->file);
     return ESP_OK;

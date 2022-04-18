@@ -102,10 +102,11 @@ static void wifi_sniffer_cb(void *recv_buf, wifi_promiscuous_pkt_type_t type)
 
         packet_info.seconds = tv.tv_sec;
         packet_info.microseconds = tv.tv_usec;
-        packet_info.length = pkt->rx_ctrl.sig_len;
+        packet_info.length = pkt->rx_ctrl.sig_len + sizeof(wifi_pkt_rx_ctrl_t);
 
         packet_info.length -= SNIFFER_PAYLOAD_FCS_LEN;
-        queue_packet(pkt->payload, &packet_info);
+
+        queue_packet(pkt, &packet_info);
     }
 }
 
@@ -172,7 +173,7 @@ err:
 esp_err_t sniffer_start(void)
 {
     esp_err_t ret = ESP_OK;
-    pcap_link_type_t link_type = PCAP_LINK_TYPE_802_11;
+    pcap_link_type_t link_type = PCAP_LINK_TYPE_802_11_RADIOTAP;
     wifi_promiscuous_filter_t wifi_filter = {
         .filter_mask = WIFI_EVENT_MASK_AP_PROBEREQRECVED
 	};
