@@ -16,6 +16,8 @@ static const char *TAG = "pcap";
 #define PCAP_MAGIC_BIG_ENDIAN 0xA1B2C3D4    /*!< Big-Endian */
 #define PCAP_MAGIC_LITTLE_ENDIAN 0xD4C3B2A1 /*!< Little-Endian */
 
+#define RTAP_IT_PRESENT 0b00000000000000000000100000100000
+
 typedef struct pcap_file_t pcap_file_t;
 
 /**
@@ -43,6 +45,16 @@ typedef struct
     uint16_t it_len;        /*!< entire length */
     uint32_t it_present;    /*!< fields present */ 
 } pcap_radiotap_header_t;
+
+/**
+ * @brief Rtap data Structure
+ * 
+ */
+typedef struct
+{
+    uint8_t antsignal;
+    uint8_t antenna;
+} pcap_radiotap_data_t;
 
 /**
  * @brief Pcap Packet Header
