@@ -19,7 +19,22 @@ static const char *TAG = "pcap";
 
 #define SNIFFER_PAYLOAD_FCS_LEN             (4)
 
-#define RTAP_IT_PRESENT 0b00000000000000000000100000100000
+#define RTAP_IT_PRESENT 0b00000000000000000000100000101000
+#define RTAP_CHANNEL_FLAGS 0b0000000010000000
+
+const uint16_t channels[] =  { 2412,
+                               2417,
+                               2422,
+                               2427,
+                               2432,
+                               2437,
+                               2442,
+                               2447,
+                               2452,
+                               2457,
+                               2462,
+                               2467,
+                               2472};
 
 typedef struct pcap_file_t pcap_file_t;
 
@@ -55,6 +70,8 @@ typedef struct
  */
 typedef struct
 {
+    uint16_t channel_frequency;
+    uint16_t channel_flags;
     uint8_t antsignal;
     uint8_t antenna;
 } pcap_radiotap_data_t;
@@ -158,6 +175,8 @@ esp_err_t pcap_capture_packet(pcap_file_handle_t pcap, void *payload, uint32_t l
         .it_present = RTAP_IT_PRESENT
     };
     pcap_radiotap_data_t rtap_data = {
+        .channel_frequency = channels[pkt->rx_ctrl.channel],
+        .channel_flags = RTAP_CHANNEL_FLAGS,
         .antenna = pkt->rx_ctrl.ant,
         .antsignal = pkt->rx_ctrl.rssi
     };
