@@ -25,7 +25,6 @@
 #include "config.h"
 #include "esp_wifi_types.h"
 
-#define SNIFFER_DEFAULT_CHANNEL             (1)
 #define SNIFFER_PAYLOAD_FCS_LEN             (4)
 #define SNIFFER_PROCESS_PACKET_TIMEOUT_MS   (100)
 #define SNIFFER_RX_FCS_ERR                  (0X41)
@@ -217,5 +216,5 @@ err:
 void initialize_sniffer(void)
 {
     snf_rt.interf = SNIFFER_INTF_WLAN;
-    snf_rt.channel = SNIFFER_DEFAULT_CHANNEL;
+    snf_rt.channel = CONFIG_SNIFFER_DEFAULT_CHANNEL;
 }

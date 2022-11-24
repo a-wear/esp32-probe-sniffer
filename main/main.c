@@ -127,7 +127,15 @@ void app_main(void)
             change_file = false;
         }
 
-        vTaskDelay(10);
+#if CONFIG_ALL_CHANNEL_SCAN
+        for (int chan = 1; chan <= 10; chan++)
+        {
+            vTaskDelay(5);
+            ESP_ERROR_CHECK(esp_wifi_set_channel(chan, WIFI_SECOND_CHAN_NONE));
+        }
+#endif
+        
+        vTaskDelay(5);
     }
 }
 
