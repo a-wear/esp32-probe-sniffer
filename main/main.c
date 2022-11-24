@@ -26,6 +26,8 @@
 #include "esp_sntp.h"
 #include "pcap_lib.h"
 #include "sniffer.h"
+#include "csi.h"
+
 
 /* Defines -------------------------------------------------------------------*/
 #define ESP_INTR_FLAG_DEFAULT 0
@@ -46,7 +48,8 @@ static void initialize_sntp(void);
 static void initialize_wifi(void);
 static bool mount_sd(void);
 static bool unmount_sd(void);
-static uint32_t get_file_index(uint32_t max_files);
+static uint32_t get_pcap_file_index(uint32_t max_files);
+static uint32_t get_csi_file_index(uint32_t max_files);
 
 /* Interrupt service prototypes ----------------------------------------------*/
 static void IRAM_ATTR gpio_isr_handler(void* arg);
@@ -61,7 +64,8 @@ void app_main(void)
     time_t current_time;
     struct tm timeinfo;
     char strftime_buf[64];
-    uint32_t file_idx = 0;
+    uint32_t pcap_file_idx = 0;
+    uint32_t csi_file_idx = 0;
 
     // Initialize peripherals and time
     initialize_gpio();
@@ -85,14 +89,20 @@ void app_main(void)
     {
         return;
     }
-    file_idx = get_file_index(65535);
+    pcap_file_idx = get_pcap_file_index(65535);
+    csi_file_idx = get_csi_file_index(65535);
 
     // Open first pcap file
-    ESP_ERROR_CHECK(pcap_open(file_idx));
+    ESP_ERROR_CHECK(pcap_open(pcap_file_idx));
     initialize_wifi();
     initialize_sniffer();
     ESP_ERROR_CHECK(sniffer_start());
     
+    // Open first csv file
+    open_csi_file(csi_file_idx);
+    initialize_csi();
+    csi_start();
+
     //start periodical save task
     xTaskCreate(save_task, "save_task", 1024, NULL, 10, NULL);
 
@@ -107,9 +117,11 @@ void app_main(void)
 
             if (sd_mounted == true)
             {
+                csi_stop();
                 // Close current pcap and unmount SD
                 ESP_ERROR_CHECK(sniffer_stop());
                 ESP_ERROR_CHECK(pcap_close());
+                close_csi_file();
                 sd_mounted = unmount_sd();
             }
 
@@ -119,10 +131,16 @@ void app_main(void)
         }
         else if (change_file == true)
         {
+            csi_stop();
+            close_csi_file();
+            open_csi_file(++csi_file_idx);
+
             ESP_ERROR_CHECK(sniffer_stop());
             ESP_ERROR_CHECK(pcap_close());
-            ESP_ERROR_CHECK(pcap_open(++file_idx));
+            ESP_ERROR_CHECK(pcap_open(++pcap_file_idx));
             ESP_ERROR_CHECK(sniffer_start());
+
+            csi_start();
 
             change_file = false;
         }
@@ -227,6 +245,7 @@ static void initialize_wifi(void)
 
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_NULL));
+    ESP_ERROR_CHECK(esp_wifi_start());
 }
 
 static void obtain_time(void)
@@ -315,7 +334,7 @@ static bool unmount_sd(void)
     return false;
 }
 
-static uint32_t get_file_index(uint32_t max_files)
+static uint32_t get_pcap_file_index(uint32_t max_files)
 {
     uint32_t idx;
     char filename[CONFIG_FATFS_MAX_LFN];
@@ -323,6 +342,23 @@ static uint32_t get_file_index(uint32_t max_files)
     for(idx = 0; idx < max_files; idx++)
     {
         sprintf(filename, CONFIG_SD_MOUNT_POINT"/"CONFIG_PCAP_FILENAME_MASK, idx);
+        if (access(filename, F_OK) != 0)
+        {
+            break;
+        }
+    }
+
+    return idx;
+}
+
+static uint32_t get_csi_file_index(uint32_t max_files)
+{
+    uint32_t idx;
+    char filename[CONFIG_FATFS_MAX_LFN];
+
+    for(idx = 0; idx < max_files; idx++)
+    {
+        sprintf(filename, CONFIG_SD_MOUNT_POINT"/"CONFIG_CSI_FILENAME_MASK, idx);
         if (access(filename, F_OK) != 0)
         {
             break;

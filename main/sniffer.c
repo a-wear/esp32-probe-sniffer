@@ -90,7 +90,7 @@ static void queue_packet(void *recv_packet, sniffer_packet_info_t *packet_info)
     }
     else
     {
-        ESP_LOGE(SNIFFER_TAG, "No enough memory for promiscuous packet");
+        ESP_LOGE(SNIFFER_TAG, "Not enough memory for promiscuous packet");
     }
 }
 
@@ -187,7 +187,7 @@ esp_err_t sniffer_start(void)
     esp_err_t ret = ESP_OK;
     pcap_link_type_t link_type = PCAP_LINK_TYPE_802_11_RADIOTAP;
     wifi_promiscuous_filter_t wifi_filter = {
-        .filter_mask = WIFI_EVENT_MASK_AP_PROBEREQRECVED
+        .filter_mask = WIFI_EVENT_MASK_AP_PROBEREQRECVED | WIFI_PROMIS_FILTER_MASK_DATA
 	};
     ESP_GOTO_ON_FALSE(!(snf_rt.is_running), ESP_ERR_INVALID_STATE, err, SNIFFER_TAG, "sniffer is already running");
 
