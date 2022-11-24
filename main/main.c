@@ -24,7 +24,6 @@
 #include "sdmmc_cmd.h"
 #include "wifi_connect.h"
 #include "esp_sntp.h"
-#include "pcap_lib.h"
 #include "sniffer.h"
 
 /* Defines -------------------------------------------------------------------*/
@@ -46,14 +45,12 @@ static void initialize_sntp(void);
 static void initialize_wifi(void);
 static bool mount_sd(void);
 static bool unmount_sd(void);
-static uint32_t get_file_index(uint32_t max_files);
 
 /* Interrupt service prototypes ----------------------------------------------*/
 static void IRAM_ATTR gpio_isr_handler(void* arg);
 
 /* Task prototypes -----------------------------------------------------------*/
 static void gpio_task(void* arg);
-static void save_task(void* arg);
 
 /* Main function -------------------------------------------------------------*/
 void app_main(void)
@@ -61,7 +58,6 @@ void app_main(void)
     time_t current_time;
     struct tm timeinfo;
     char strftime_buf[64];
-    uint32_t file_idx = 0;
 
     // Initialize peripherals and time
     initialize_gpio();
@@ -85,16 +81,11 @@ void app_main(void)
     {
         return;
     }
-    file_idx = get_file_index(65535);
 
     // Open first pcap file
-    ESP_ERROR_CHECK(pcap_open(file_idx));
     initialize_wifi();
     initialize_sniffer();
     ESP_ERROR_CHECK(sniffer_start());
-    
-    //start periodical save task
-    xTaskCreate(save_task, "save_task", 1024, NULL, 10, NULL);
 
     // Turn off LED when set up ends
     ESP_ERROR_CHECK(gpio_set_level(CONFIG_GPIO_LED_PIN, CONFIG_GPIO_LED_OFF));
@@ -109,22 +100,12 @@ void app_main(void)
             {
                 // Close current pcap and unmount SD
                 ESP_ERROR_CHECK(sniffer_stop());
-                ESP_ERROR_CHECK(pcap_close());
                 sd_mounted = unmount_sd();
             }
 
             // Turn LED ON when SD unmounted
             ESP_ERROR_CHECK(gpio_set_level(CONFIG_GPIO_LED_PIN, CONFIG_GPIO_LED_ON));
             return;
-        }
-        else if (change_file == true)
-        {
-            ESP_ERROR_CHECK(sniffer_stop());
-            ESP_ERROR_CHECK(pcap_close());
-            ESP_ERROR_CHECK(pcap_open(++file_idx));
-            ESP_ERROR_CHECK(sniffer_start());
-
-            change_file = false;
         }
 
         vTaskDelay(10);
@@ -150,19 +131,6 @@ static void gpio_task(void* arg)
             stop_probing = true;
         }
     }
-}
-
-static void save_task(void* arg)
-{
-    const TickType_t xDelay = (1000 * 60 * CONFIG_SAVE_FREQUENCY_MINUTES) / portTICK_PERIOD_MS;
-
-    while(stop_probing == false)
-    {
-        vTaskDelay(xDelay);
-        change_file = true;
-    }
-
-    vTaskDelete(NULL);
 }
 
 /* Function definitions ------------------------------------------------------*/
@@ -305,21 +273,4 @@ static bool unmount_sd(void)
     }
     ESP_LOGI(TAG, "Card unmounted");
     return false;
-}
-
-static uint32_t get_file_index(uint32_t max_files)
-{
-    uint32_t idx;
-    char filename[CONFIG_FATFS_MAX_LFN];
-
-    for(idx = 0; idx < max_files; idx++)
-    {
-        sprintf(filename, CONFIG_SD_MOUNT_POINT"/"CONFIG_PCAP_FILENAME_MASK, idx);
-        if (access(filename, F_OK) != 0)
-        {
-            break;
-        }
-    }
-
-    return idx;
 }

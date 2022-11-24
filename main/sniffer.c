@@ -19,7 +19,6 @@
 #include "esp_console.h"
 #include "esp_app_trace.h"
 #include "sniffer.h"
-#include "pcap_lib.h"
 #include "esp_check.h"
 #include "sdkconfig.h"
 #include "config.h"
@@ -32,6 +31,7 @@
 #define SNIFFER_DECIMAL_NUM                 (10)
 
 static const char *SNIFFER_TAG = "sniffer";
+static char filename[CONFIG_FATFS_MAX_LFN];
 
 typedef struct {
     bool is_running;
@@ -110,10 +110,43 @@ static void wifi_sniffer_cb(void *recv_buf, wifi_promiscuous_pkt_type_t type)
     }
 }
 
+static esp_err_t sniffer_write_reduced_data(void *payload, uint32_t length)
+{
+    esp_err_t ret = ESP_OK;
+    wifi_promiscuous_pkt_t *pkt = (wifi_promiscuous_pkt_t *)payload;
+    packet_control_header_t *hdr = (packet_control_header_t *)pkt->payload;
+    struct timeval tv;
+    time_t current_time;
+    struct tm* timeinfo;
+    char str_buf[64];
+    
+    FILE *file;
+
+    file = fopen(filename, "a");
+    if (file == NULL)
+    {
+        ESP_LOGE(SNIFFER_TAG, "Failed to open file for writing");
+        return -1;
+    }
+
+    gettimeofday(&tv, NULL);
+    current_time = tv.tv_sec + 3600;
+    timeinfo = localtime(&current_time);
+    strftime(str_buf, sizeof(str_buf), "%c", timeinfo);
+
+    // Time, MAC, RSSI
+    fprintf(file, "%s, %2d:%2d:%2d:%2d:%2d:%2d, %d\n", str_buf, hdr->addr2[0], hdr->addr2[1], hdr->addr2[2], hdr->addr2[3], hdr->addr2[4], hdr->addr2[5], pkt->rx_ctrl.rssi);
+    fclose(file);
+
+    return ret;
+}
+
 static void sniffer_task(void *parameters)
 {
     sniffer_packet_info_t packet_info;
     sniffer_runtime_t *sniffer = (sniffer_runtime_t *)parameters;
+
+    snprintf(filename, sizeof(filename), CONFIG_SD_MOUNT_POINT"/"CONFIG_OUTPUT_FILE);
 
     while (sniffer->is_running)
     {
@@ -122,8 +155,8 @@ static void sniffer_task(void *parameters)
         {
             continue;
         }
-        if (packet_capture(packet_info.payload, packet_info.length, packet_info.seconds,
-                           packet_info.microseconds) != ESP_OK)
+        if (sniffer_write_reduced_data(packet_info.payload,
+                                       packet_info.length) != ESP_OK)
         {
             ESP_LOGW(SNIFFER_TAG, "save captured packet failed");
         }
@@ -163,9 +196,6 @@ esp_err_t sniffer_stop(void)
     }
     vQueueDelete(snf_rt.work_queue);
     snf_rt.work_queue = NULL;
-
-    /* stop pcap session */
-    sniff_packet_stop();
 err:
     return ret;
 }
@@ -173,14 +203,10 @@ err:
 esp_err_t sniffer_start(void)
 {
     esp_err_t ret = ESP_OK;
-    pcap_link_type_t link_type = PCAP_LINK_TYPE_802_11_RADIOTAP;
     wifi_promiscuous_filter_t wifi_filter = {
         .filter_mask = WIFI_EVENT_MASK_AP_PROBEREQRECVED
 	};
     ESP_GOTO_ON_FALSE(!(snf_rt.is_running), ESP_ERR_INVALID_STATE, err, SNIFFER_TAG, "sniffer is already running");
-
-    /* init a pcap session */
-    ESP_GOTO_ON_ERROR(sniff_packet_start(link_type), err, SNIFFER_TAG, "init pcap session failed");
 
     snf_rt.is_running = true;
     snf_rt.work_queue = xQueueCreate(CONFIG_SNIFFER_WORK_QUEUE_LEN, sizeof(sniffer_packet_info_t));
