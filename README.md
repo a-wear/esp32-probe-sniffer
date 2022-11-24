@@ -1,6 +1,6 @@
-# The sniffer storing radiotap data
-
-In this version the saving of pcap files is expanded by inclusion of radiotap header. This means the RSSI is also included in the saved data.
+# The sniffer storing radiotap data and CSI
+ 
+In this version the saving of pcap files with radiotap header is expanded bz separate task saving CSI into separate files.
 
 ## Configuration
 
