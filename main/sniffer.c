@@ -32,6 +32,15 @@
 
 static const char *SNIFFER_TAG = "sniffer";
 
+#if CONFIG_SNIFFER_USE_MAC_FILTER
+static const uint8_t filter_mac[6] = {CONFIG_SNIFFER_MAC_FILTER_B1, 
+                                      CONFIG_SNIFFER_MAC_FILTER_B2, 
+                                      CONFIG_SNIFFER_MAC_FILTER_B3, 
+                                      CONFIG_SNIFFER_MAC_FILTER_B4, 
+                                      CONFIG_SNIFFER_MAC_FILTER_B5, 
+                                      CONFIG_SNIFFER_MAC_FILTER_B6};
+#endif
+
 typedef struct {
     bool is_running;
     sniffer_intf_t interf;
@@ -95,7 +104,11 @@ static void wifi_sniffer_cb(void *recv_buf, wifi_promiscuous_pkt_type_t type)
     int32_t fc = ntohs(hdr->frame_ctrl);
 
     // Check only for Probe requests
+#if CONFIG_SNIFFER_USE_MAC_FILTER
+    if ((fc & 0xFF00) == 0x4000 && memcmp(hdr->addr2, filter_mac, 6) == 0)
+#else
     if ((fc & 0xFF00) == 0x4000)
+#endif
     {
         gettimeofday(&tv, NULL);
 
